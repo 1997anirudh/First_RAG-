@@ -1,0 +1,10 @@
+Artificial intelligence (AI) is intelligence demonstrated by machines.
+AI is used in many fields including healthcare, finance, and education.
+Machine learning is a subset of AI that learns from data without being explicitly programmed.
+Deep learning uses neural networks with many layers to solve complex problems.
+Natural language processing (NLP) allows computers to understand human language.
+Large language models like GPT and Claude are trained on vast amounts of text data.
+RAG stands for Retrieval Augmented Generation. It combines search with language generation.
+RAG helps language models answer questions using your own documents instead of just training data.
+Vector databases store embeddings and allow fast similarity search.
+ChromaDB is an open-source vector database that runs locally on your machine.
