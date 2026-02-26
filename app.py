@@ -1,5 +1,5 @@
 import chromadb
-import ollama
+from chromadb.utils import embedding_functions
 from groq import Groq
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from flask import Flask, request, jsonify
@@ -7,20 +7,18 @@ import os
 
 app = Flask(__name__)
 groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+ef = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
 
 def build_index(filepath):
     with open(filepath, "r") as f:
         raw_text = f.read()
-
     splitter = RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=40)
     chunks = splitter.split_text(raw_text)
-
     client = chromadb.PersistentClient(path="./chroma_db")
     collection = client.get_or_create_collection(name="my_docs")
     collection.delete(where={"source": filepath})
-
     for i, chunk in enumerate(chunks):
-        embedding = ollama.embeddings(model='nomic-embed-text', prompt=chunk)['embedding']
+        embedding = ef([chunk])[0]
         collection.add(
             ids=[f"{filepath}_chunk_{i}"],
             embeddings=[embedding],
@@ -32,21 +30,16 @@ def build_index(filepath):
 def ask(question):
     client = chromadb.PersistentClient(path="./chroma_db")
     collection = client.get_or_create_collection(name="my_docs")
-
-    question_embedding = ollama.embeddings(model='nomic-embed-text', prompt=question)['embedding']
+    question_embedding = ef([question])[0]
     results = collection.query(query_embeddings=[question_embedding], n_results=3)
     context = "\n\n".join(results['documents'][0])
     print(f"DEBUG CONTEXT:\n{context}\n")
-
     prompt = f"""You are a helpful assistant. Answer using ONLY the context below.
 If the answer is not in the context, say "I don't know."
-
 Context:
 {context}
-
 Question: {question}
 Answer:"""
-
     response = groq_client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=[{"role": "user", "content": prompt}]
@@ -69,18 +62,14 @@ def ask_endpoint():
 def health():
     return jsonify({"status": "RAG app is running!"})
 
-
 @app.route("/debug", methods=["POST"])
 def debug_endpoint():
     data = request.json
     question = data.get("question", "")
-
     client = chromadb.PersistentClient(path="./chroma_db")
     collection = client.get_or_create_collection(name="my_docs")
-
-    question_embedding = ollama.embeddings(model='nomic-embed-text', prompt=question)['embedding']
+    question_embedding = ef([question])[0]
     results = collection.query(query_embeddings=[question_embedding], n_results=3)
-
     return jsonify({"chunks": results['documents'][0]})
 
 if __name__ == "__main__":
